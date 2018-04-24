@@ -1,6 +1,8 @@
 Initiative_deep_learning
 =========================
 
+[![MIT license](https://img.shields.io/dub/l/vibe-d.svg)](https://github.com/Daniel1586/Initiative__learning/blob/master/LICENSE)
+
 项目介绍
 ------------
 
