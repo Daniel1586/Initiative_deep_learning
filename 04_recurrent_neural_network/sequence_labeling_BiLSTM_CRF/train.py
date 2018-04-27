@@ -7,10 +7,9 @@ import tensorflow as tf
 from BILSTM_CRF import BILSTM_CRF
 
 # python train.py train.in model -v validation.in -c char_emb -e 10 -g 2
-
 # python train.py train.in model -v validation.in -e 10
-
-
+# 命令行参数,后续添加
+"""
 parser = argparse.ArgumentParser()
 parser.add_argument("train_path", help="the path of the train file")
 parser.add_argument("save_path", help="the path of the saved model")
@@ -18,17 +17,17 @@ parser.add_argument("-v","--val_path", help="the path of the validation file", d
 parser.add_argument("-e","--epoch", help="the number of epoch", default=100, type=int)
 parser.add_argument("-c","--char_emb", help="the char embedding file", default=None)
 parser.add_argument("-g","--gpu", help="the id of gpu, the default is 0", default=0, type=int)
-
 args = parser.parse_args()
+"""
 
-train_path = args.train_path
-save_path = args.save_path
-val_path = args.val_path
-num_epochs = args.epoch
-emb_path = args.char_emb
+train_path = "train.in"
+save_path = "model"
+val_path = "validation.in"
+num_epochs = 20
+emb_path = "label2id"
 # gpu_config = "/gpu:"+str(args.gpu)
 gpu_config = "/cpu:0"
-num_steps = 200 # it must consist with the test
+num_steps = 200 	# it must consist with the test
 
 start_time = time.time()
 print("preparing train and validation data")
