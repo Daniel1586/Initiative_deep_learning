@@ -4,34 +4,20 @@
 """
 @file: bilstm_cnn_crf.py
 """
-import os,re
 import codecs
 import pickle
-import time
-
-import gc
-import numpy as np
-np.random.seed(1111)
-
 import gensim
-import random
-
-import keras
-# keras.backend.clear_session()
-
 from keras.layers import *
-from keras.models import *
 from keras_contrib.layers import CRF
-
-from keras import backend as K
-
+from keras.models import *
 from keras.utils import plot_model
 from keras.utils import np_utils
-
 from keras.preprocessing import sequence
 from keras.callbacks import ModelCheckpoint
 
 from keras.models import model_from_json
+
+np.random.seed(1111)
 
 
 class Documents(object):
@@ -43,8 +29,9 @@ class Documents(object):
 
 # 训练模型 保存weights
 def process_train(corpus_path, nb_epoch, base_model_weight=None):
+    # ********************** 训练数据预处理 **********************
 
-    # 1.读取corpus语料下,语料文件夹下各语料文件地址
+    # 1.读取corpus语料,语料文件夹下各语料文件地址
     raw_train_file = [corpus_path + os.sep + folder + os.sep + file
                       for folder in os.listdir(corpus_path)
                       for file in os.listdir(corpus_path + os.sep + folder)]
@@ -65,30 +52,23 @@ def process_train(corpus_path, nb_epoch, base_model_weight=None):
     embedding_weights = load_embedding(embedding_model, embedding_size, lexicon_reverse)
     print("***** 训练好的词向量维度: ", embedding_weights.shape)
 
-    # 0 为padding的label
+    # 5.将训练数据的原始格式转换为字典中的下标表示,并将所有样本按max_len补长
     label_2_index = {'Pad': 0, 'B': 1, 'M': 2, 'E': 3, 'S': 4, 'Unk': 5}
     index_2_label = {0: 'Pad', 1: 'B', 2: 'M', 3: 'E', 4: 'S', 5: 'Unk'}
-    # 将训练数据的原始格式转换为字典中的下标表示
     train_data_list, train_label_list, train_index_list = create_matrix(train_docs, lexicon, label_2_index)
-
-    print(len(train_data_list), len(train_label_list), len(train_label_list))
-    print(train_data_list[0])
-    print(train_label_list[0])
-
     max_len = max(map(len, train_data_list))
-    print('maxlen:', max_len)
-
+    print("***** 原始数据样本最大长度: ", max_len)
     train_data_array, train_label_list_padding = padding_sentences(train_data_list, train_label_list, max_len)
-    print(train_data_array.shape)
-    print(train_data_array[0])
-
+    print("***** 原始数据补长后维度: ", train_data_array.shape)
+    # label one-hot化
     train_label_array = np_utils.to_categorical(train_label_list_padding, len(label_2_index)). \
         reshape((len(train_label_list_padding), len(train_label_list_padding[0]), -1))
-    print(train_label_array.shape)
-    print(train_label_array[0])
+    print("***** label one-hot后维度: ", train_label_array.shape)
 
-    # model
-    model = Bilstm_CNN_Crf(max_len, len(lexicon), len(label_2_index), embedding_weights)
+    # ********************** 模型搭建和训练 **********************
+
+    # 1.搭建BiLSTM-CNN-CRF模型
+    model = bilstm_cnn_crf(max_len, len(lexicon), len(label_2_index), embedding_weights)
     print(model.input_shape)
     print(model.output_shape)
 
@@ -211,6 +191,59 @@ def create_matrix(docs, lexicon, lab2idx):
         index_list.append(doc.index)
 
     return datas_list, label_list, index_list
+
+
+# 训练数据按样本最大长度补长(前面补0),包括数据和标签
+def padding_sentences(data_list, label_list, max_len):
+    padding_data_list = sequence.pad_sequences(data_list, maxlen=max_len)
+    padding_label_list = []
+    for item in label_list:
+        padding_label_list.append([0]*(max_len-len(item))+item)
+
+    padding_label_list = np.array(padding_label_list)
+
+    return padding_data_list, padding_label_list
+
+
+# 搭建BiLSTM-CNN-CRF模型
+# max_len:样本分句最大长度;char_dict_len:词典长度;label_len:分词任务标签长度
+# embedding_weights:词向量;is_train:训练标记
+def bilstm_cnn_crf(max_len, char_dict_len, label_len, embedding_weights=None, is_train=True):
+    word_input = Input(shape=(max_len,), dtype='int32', name='word_input')
+    if is_train:
+        word_emb = Embedding(char_dict_len+2, output_dim=100, input_length=max_len,
+                             weights=[embedding_weights], name='word_emb')(word_input)
+    else:
+        word_emb = Embedding(char_dict_len+2, output_dim=100, input_length=max_len,
+                             name='word_emb')(word_input)
+
+    # BiLSTM
+    bilstm = Bidirectional(LSTM(64, return_sequences=True))(word_emb)
+    bilstm_d = Dropout(0.1)(bilstm)
+
+    # CNN
+    half_window_size = 2
+    padding_layer = ZeroPadding1D(padding=half_window_size)(word_emb)
+    cnn_conv = Conv1D(nb_filter=50, filter_length=2*half_window_size+1, padding='valid')(padding_layer)
+    cnn_conv_d = Dropout(0.1)(cnn_conv)
+    dense_conv = TimeDistributed(Dense(50))(cnn_conv_d)
+
+    # BiLSTM+CNN
+    rnn_cnn_merge = merge([bilstm_d, dense_conv], mode='concat', concat_axis=2)
+    dense = TimeDistributed(Dense(label_len))(rnn_cnn_merge)
+
+    # CRF
+    crf = CRF(label_len, sparse_target=False)
+    crf_output = crf(dense)
+
+    # build model
+    print("***** Building model...... ")
+    model = Model(input=[word_input], output=[crf_output])
+    model.compile(loss=crf.loss_function, optimizer='adam', metrics=[crf.accuracy])
+
+    # model.summary()
+
+    return model
 
 
 def main():
