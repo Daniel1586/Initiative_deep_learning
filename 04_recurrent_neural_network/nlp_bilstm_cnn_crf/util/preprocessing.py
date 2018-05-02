@@ -3,44 +3,42 @@
 
 from __future__ import (division, absolute_import, print_function, unicode_literals)
 import os
-import numpy as np
+import sys
 import gzip
 import os.path
 import nltk
 import logging
+import numpy as np
+import pickle as pkl
 from nltk import FreqDist
-
 from .WordEmbeddings import wordNormalize
 from .CoNLL import readCoNLL
 
-import sys
-if (sys.version_info > (3, 0)):
-    import pickle as pkl
-else: #Python 2.7 imports
-    import cPickle as pkl
-    from io import open
 
-def perpareDataset(embeddingsPath, datasets, frequencyThresholdUnknownTokens=50, reducePretrainedEmbeddings=False, valTransformations=None, padOneTokenSentence=True):
+def prepareDataset(embeddingsPath, datasets, frequencyThresholdUnknownTokens=50, reducePretrainedEmbeddings=False, valTransformations=None, padOneTokenSentence=True):
     """
-    Reads in the pre-trained embeddings (in text format) from embeddingsPath and prepares those to be used with the LSTM network.
-    Unknown words in the trainDataPath-file are added, if they appear at least frequencyThresholdUnknownTokens times
+    Reads in the pre-trained embeddings (in text format) from embeddingsPath and prepares those to be used with
+    the LSTM network. Unknown words in the trainDataPath-file are added, if they appear at least frequencyThresholdUnknownTokens times
     
     # Arguments:
-        embeddingsPath: Full path to the pre-trained embeddings file. File must be in text format.
-        datasetFiles: Full path to the [train,dev,test]-file
-        frequencyThresholdUnknownTokens: Unknown words are added, if they occure more than frequencyThresholdUnknownTokens times in the train set
-        reducePretrainedEmbeddings: Set to true, then only the embeddings needed for training will be loaded
+    :param embeddingsPath: Full path to the pre-trained embeddings file. File must be in text format.
+    :param datasets: Full path to the [train,dev,test]-file
+    :param frequencyThresholdUnknownTokens: Unknown words are added, if they occure more than frequencyThresholdUnknownTokens times in the train set
+    :param reducePretrainedEmbeddings: Set to true, then only the embeddings needed for training will be loaded
         valTransformations: Column specific value transformations
         padOneTokenSentence: True to pad one sentence tokens (needed for CRF classifier)
     """
+    logging.info("***** Prepare pre-trained embeddings and datasets")
+
     embeddingsName = os.path.splitext(embeddingsPath)[0]
     pklName = "_".join(sorted(datasets.keys()) + [embeddingsName])
     outputPath = 'pkl/' + pklName + '.pkl'
 
     if os.path.isfile(outputPath):
-        logging.info("Using existent pickle file: %s" % outputPath)
+        logging.info("***** Using existent pickle file: %s" % outputPath)
         return outputPath
 
+    logging.info("***** Generate pickle file of embeddings and datasets")
     casing2Idx = getCasingVocab()
     embeddings, word2Idx = readEmbeddings(embeddingsPath, datasets, frequencyThresholdUnknownTokens, reducePretrainedEmbeddings)
     
@@ -59,7 +57,6 @@ def perpareDataset(embeddingsPath, datasets, frequencyThresholdUnknownTokens=50,
         logging.info(":: Transform "+datasetName+" dataset ::")
         pklObjects['data'][datasetName] = createPklFiles(paths, mappings, datasetColumns, commentSymbol, valTransformations, padOneTokenSentence)
 
-    
     f = open(outputPath, 'wb')
     pkl.dump(pklObjects, f, -1)
     f.close()
@@ -78,7 +75,6 @@ def loadDatasetPickle(embeddingsPickle):
     return pklObjects['embeddings'], pklObjects['mappings'], pklObjects['data']
 
 
-
 def readEmbeddings(embeddingsPath, datasetFiles, frequencyThresholdUnknownTokens, reducePretrainedEmbeddings):
     """
     Reads the embeddingsPath.
@@ -89,15 +85,16 @@ def readEmbeddings(embeddingsPath, datasetFiles, frequencyThresholdUnknownTokens
     :param reducePretrainedEmbeddings:
     :return:
     """
-    # Check that the embeddings file exists
+    # :: Check that the embeddings file exists ::
     if not os.path.isfile(embeddingsPath):
-        if embeddingsPath in ['komninos_english_embeddings.gz', 'levy_english_dependency_embeddings.gz', 'reimers_german_embeddings.gz']:
+        if embeddingsPath in ['komninos_english_embeddings.gz', 'levy_english_dependency_embeddings.gz',
+                              'reimers_german_embeddings.gz']:
             getEmbeddings(embeddingsPath)
         else:
             print("The embeddings file %s was not found" % embeddingsPath)
             exit()
 
-    logging.info("Generate new embeddings files for a dataset")
+    logging.info("***** Generate new embeddings files for a dataset")
 
     neededVocab = {}
     if reducePretrainedEmbeddings:
@@ -249,9 +246,10 @@ def getCasing(word):
     
     return casing
 
+
 def getCasingVocab():
     entries = ['PADDING', 'other', 'numeric', 'mainly_numeric', 'allLower', 'allUpper', 'initialUpper', 'contains_digit']
-    return {entries[idx]:idx for idx in range(len(entries))}
+    return {entries[idx]: idx for idx in range(len(entries))}
 
 
 def createMatrices(sentences, mappings, padOneTokenSentence):

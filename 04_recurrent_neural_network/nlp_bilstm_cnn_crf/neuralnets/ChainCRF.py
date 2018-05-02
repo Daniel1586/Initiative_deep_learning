@@ -13,15 +13,16 @@ from keras import constraints
 from keras import initializers
 from keras.engine import Layer, InputSpec
 
+
 def path_energy(y, x, U, b_start=None, b_end=None, mask=None):
-    '''Calculates the energy of a tag path y for a given input x (with mask),
-    transition energies U and boundary energies b_start, b_end.'''
+    # Calculates the energy of a tag path y for a given input x (with mask),
+    # transition energies U and boundary energies b_start, b_end.
     x = add_boundary_energy(x, b_start, b_end, mask)
     return path_energy0(y, x, U, mask)
 
 
 def path_energy0(y, x, U, mask=None):
-    '''Path energy without boundary potential handling.'''
+    # Path energy without boundary potential handling.
     n_classes = K.shape(x)[2]
     y_one_hot = K.one_hot(y, n_classes)
 
@@ -260,6 +261,7 @@ class ChainCRF(Layer):
     that sample weighting in temporal mode.
 
     '''
+
     def __init__(self, init='glorot_uniform',
                  U_regularizer=None,
                  b_start_regularizer=None,
@@ -284,6 +286,11 @@ class ChainCRF(Layer):
         self.uses_learning_phase = True
         self.input_spec = [InputSpec(ndim=3)]
 
+        # attribute initial
+        self.U = None
+        self.b_start = None
+        self.b_end = None
+
     def compute_output_shape(self, input_shape):
         assert input_shape and len(input_shape) == 3
         return (input_shape[0], input_shape[1], input_shape[2])
@@ -295,8 +302,7 @@ class ChainCRF(Layer):
 
     def _fetch_mask(self):
         mask = None
-        
-        
+
         if self._inbound_nodes:
             mask = self._inbound_nodes[0].input_masks[0]
 
@@ -341,15 +347,12 @@ class ChainCRF(Layer):
         return K.in_train_phase(x, y_pred_one_hot)
 
     def loss(self, y_true, y_pred):
-        '''Linear Chain Conditional Random Field loss function.
-        '''
+        # Linear Chain Conditional Random Field loss function.
         mask = self._fetch_mask()
         return chain_crf_loss(y_true, y_pred, self.U, self.b_start, self.b_end, mask)
 
     def sparse_loss(self, y_true, y_pred):
-        '''Linear Chain Conditional Random Field loss function with sparse
-        tag sequences.
-        '''
+        # Linear Chain Conditional Random Field loss function with sparse tag sequences.
         y_true = K.cast(y_true, 'int32')
         y_true = K.squeeze(y_true, 2)
         mask = self._fetch_mask()
@@ -370,7 +373,7 @@ class ChainCRF(Layer):
 
 
 def create_custom_objects():
-    '''Returns the custom objects, needed for loading a persisted model.'''
+    # Returns the custom objects, needed for loading a persisted model.
     instanceHolder = {'instance': None}
 
     class ChainCRFClassWrapper(ChainCRF):
