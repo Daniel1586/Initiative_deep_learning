@@ -1,4 +1,4 @@
-# Initiative_deep_learning
+# Recurrent_neural_network
 =========================
 
 Reference
