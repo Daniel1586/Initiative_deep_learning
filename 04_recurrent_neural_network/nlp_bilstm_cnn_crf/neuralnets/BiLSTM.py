@@ -1,5 +1,6 @@
 """
-A bidirectional LSTM with optional CRF and character-based presentation for NLP sequence tagging used for multi-task learning.
+A bidirectional LSTM with optional CRF and character-based presentation for NLP sequence tagging
+used for multi-task learning.
 
 Author: Nils Reimers
 License: Apache-2.0
@@ -15,7 +16,6 @@ from keras.layers import *
 import math
 import numpy as np
 import sys
-import gc
 import time
 import os
 import random
@@ -66,6 +66,7 @@ class BiLSTM:
         self.idx2Labels = None
         self.casing2Idx = None
         self.modelNames = None
+        self.maxCharLen = None
         self.mainModelName = None
         self.evaluateModelNames = None
         self.trainMiniBatchRanges = None
@@ -126,7 +127,9 @@ class BiLSTM:
         self.models = {}
 
         tokens_input = Input(shape=(None,), dtype='int32', name='words_input')
-        tokens = Embedding(input_dim=self.embeddings.shape[0], output_dim=self.embeddings.shape[1], weights=[self.embeddings], trainable=False, name='word_embeddings')(tokens_input)
+        tokens = Embedding(input_dim=self.embeddings.shape[0],
+                           output_dim=self.embeddings.shape[1], weights=[self.embeddings],
+                           trainable=False, name='word_embeddings')(tokens_input)
         inputNodes = [tokens_input]
         mergeInputLayers = [tokens]
 
@@ -177,7 +180,8 @@ class BiLSTM:
             else:   # Use CNNs for character embeddings from Ma and Hovy, 2016
                 charFilterSize = self.params['charFilterSize']
                 charFilterLength = self.params['charFilterLength']
-                chars = TimeDistributed(Conv1D(charFilterSize, charFilterLength, padding='same'), name="char_cnn")(chars)
+                chars = TimeDistributed(Conv1D(charFilterSize, charFilterLength, padding='same'),
+                                        name="char_cnn")(chars)
                 chars = TimeDistributed(GlobalMaxPooling1D(), name="char_pooling")(chars)
             
             mergeInputLayers.append(chars)
@@ -299,34 +303,36 @@ class BiLSTM:
     def trainModel(self):
         self.epoch += 1
         
-        if self.params['optimizer'] in self.learning_rate_updates and self.epoch in self.learning_rate_updates[self.params['optimizer']]:       
-            logging.info("Update Learning Rate to %f" % (self.learning_rate_updates[self.params['optimizer']][self.epoch]))
+        if self.params['optimizer'] in self.learning_rate_updates and \
+                self.epoch in self.learning_rate_updates[self.params['optimizer']]:
+            logging.info("Update Learning Rate to %f" % (self.learning_rate_updates[self.params['optimizer']][
+                self.epoch]))
             for modelName in self.modelNames:            
-                K.set_value(self.models[modelName].optimizer.lr, self.learning_rate_updates[self.params['optimizer']][self.epoch]) 
-                
-            
+                K.set_value(self.models[modelName].optimizer.lr, self.learning_rate_updates[self.params['optimizer']][
+                    self.epoch])
+
         for batch in self.minibatch_iterate_dataset():
             for modelName in self.modelNames:         
                 nnLabels = batch[modelName][0]
                 nnInput = batch[modelName][1:]
                 self.models[modelName].train_on_batch(nnInput, nnLabels)  
 
-    def minibatch_iterate_dataset(self, modelNames = None):
+    def minibatch_iterate_dataset(self, modelNames=None):
         """ Create based on sentence length mini-batches with approx. the same size. Sentences and 
         mini-batch chunks are shuffled and used to the train the model """
         
-        if self.trainSentenceLengthRanges == None:
+        if self.trainSentenceLengthRanges is None:
             """ Create mini batch ranges """
             self.trainSentenceLengthRanges = {}
             self.trainMiniBatchRanges = {}            
             for modelName in self.modelNames:
                 trainData = self.data[modelName]['trainMatrix']
-                trainData.sort(key=lambda x:len(x['tokens'])) #Sort train matrix by sentence length
+                trainData.sort(key=lambda xx: len(xx['tokens']))   # Sort train matrix by sentence length
                 trainRanges = []
                 oldSentLength = len(trainData[0]['tokens'])            
                 idxStart = 0
                 
-                #Find start and end of ranges with sentences with same length
+                # Find start and end of ranges with sentences with same length
                 for idx in range(len(trainData)):
                     sentLength = len(trainData[idx]['tokens'])
                     
@@ -336,11 +342,10 @@ class BiLSTM:
                     
                     oldSentLength = sentLength
                 
-                #Add last sentence
+                # Add last sentence
                 trainRanges.append((idxStart, len(trainData)))
-                
-                
-                #Break up ranges into smaller mini batch sizes
+
+                # Break up ranges into smaller mini batch sizes
                 miniBatchRanges = []
                 for batchRange in trainRanges:
                     rangeLen = batchRange[1]-batchRange[0]
@@ -350,18 +355,18 @@ class BiLSTM:
                     
                     for binNr in range(bins):
                         startIdx = binNr*binSize+batchRange[0]
-                        endIdx = min(batchRange[1],(binNr+1)*binSize+batchRange[0])
+                        endIdx = min(batchRange[1], (binNr+1)*binSize+batchRange[0])
                         miniBatchRanges.append((startIdx, endIdx))
                       
                 self.trainSentenceLengthRanges[modelName] = trainRanges
                 self.trainMiniBatchRanges[modelName] = miniBatchRanges
                 
-        if modelNames == None:
+        if modelNames is None:
             modelNames = self.modelNames
             
-        #Shuffle training data
+        # Shuffle training data
         for modelName in modelNames:      
-            #1. Shuffle sentences that have the same length
+            # 1. Shuffle sentences that have the same length
             x = self.data[modelName]['trainMatrix']
             for dataRange in self.trainSentenceLengthRanges[modelName]:
                 for i in reversed(range(dataRange[0]+1, dataRange[1])):
@@ -369,17 +374,15 @@ class BiLSTM:
                     j = random.randint(dataRange[0], i)
                     x[i], x[j] = x[j], x[i]
                
-            #2. Shuffle the order of the mini batch ranges       
+            # 2. Shuffle the order of the mini batch ranges
             random.shuffle(self.trainMiniBatchRanges[modelName])
-     
-        
-        #Iterate over the mini batch ranges
-        if self.mainModelName != None:
+
+        # Iterate over the mini batch ranges
+        if self.mainModelName is not None:
             rangeLength = len(self.trainMiniBatchRanges[self.mainModelName])
         else:
             rangeLength = min([len(self.trainMiniBatchRanges[modelName]) for modelName in modelNames])
 
-        
         batches = {}
         for idx in range(rangeLength):
             batches.clear()
@@ -387,10 +390,10 @@ class BiLSTM:
             for modelName in modelNames:   
                 trainMatrix = self.data[modelName]['trainMatrix']
                 dataRange = self.trainMiniBatchRanges[modelName][idx % len(self.trainMiniBatchRanges[modelName])] 
-                labels = np.asarray([trainMatrix[idx][self.labelKeys[modelName]] for idx in range(dataRange[0], dataRange[1])])
+                labels = np.asarray([trainMatrix[idx][self.labelKeys[modelName]]
+                                     for idx in range(dataRange[0], dataRange[1])])
                 labels = np.expand_dims(labels, -1)
-                
-                
+
                 batches[modelName] = [labels]
                 
                 for featureName in self.params['featureNames']:
@@ -400,13 +403,14 @@ class BiLSTM:
             yield batches   
 
     # 网络训练
+
     def fit(self, epochs):
         if self.models is None:
             self.buildModel()
 
         total_train_time = 0
-        max_dev_score = {modelName:0 for modelName in self.models.keys()}
-        max_test_score = {modelName:0 for modelName in self.models.keys()}
+        max_dev_score = {modelName: 0 for modelName in self.models.keys()}
+        max_test_score = {modelName: 0 for modelName in self.models.keys()}
         no_improvement_since = 0
         
         for epoch in range(epochs):      
@@ -418,28 +422,27 @@ class BiLSTM:
             time_diff = time.time() - start_time
             total_train_time += time_diff
             logging.info("%.2f sec for training (%.2f total)" % (time_diff, total_train_time))
-            
-            
+
             start_time = time.time() 
             for modelName in self.evaluateModelNames:
-                logging.info("-- %s --" % (modelName))
-                dev_score, test_score = self.computeScore(modelName, self.data[modelName]['devMatrix'], self.data[modelName]['testMatrix'])
-         
-                
+                logging.info("-- %s --" % modelName)
+                dev_score, test_score =\
+                    self.computeScore(modelName, self.data[modelName]['devMatrix'], self.data[modelName]['testMatrix'])
+
                 if dev_score > max_dev_score[modelName]:
                     max_dev_score[modelName] = dev_score
                     max_test_score[modelName] = test_score
                     no_improvement_since = 0
 
-                    #Save the model
-                    if self.modelSavePath != None:
+                    # Save the model
+                    if self.modelSavePath is not None:
                         self.saveModel(modelName, epoch, dev_score, test_score)
                 else:
                     no_improvement_since += 1
-                    
-                    
-                if self.resultsSavePath != None:
-                    self.resultsSavePath.write("\t".join(map(str, [epoch + 1, modelName, dev_score, test_score, max_dev_score[modelName], max_test_score[modelName]])))
+
+                if self.resultsSavePath is not None:
+                    self.resultsSavePath.write("\t".join(map(str, [epoch + 1, modelName, dev_score, test_score,
+                                                                   max_dev_score[modelName], max_test_score[modelName]])))
                     self.resultsSavePath.write("\n")
                     self.resultsSavePath.flush()
                 
@@ -448,9 +451,10 @@ class BiLSTM:
                 
             logging.info("%.2f sec for evaluation" % (time.time() - start_time))
             
-            if self.params['earlyStopping']  > 0 and no_improvement_since >= self.params['earlyStopping']:
-                logging.info("!!! Early stopping, no improvement after "+str(no_improvement_since)+" epochs !!!")
-                break
+            if self.params['earlyStopping'] > 0:
+                if no_improvement_since >= self.params['earlyStopping']:
+                    logging.info("!!! Early stopping, no improvement after "+str(no_improvement_since)+" epochs !!!")
+                    break
 
     def tagSentences(self, sentences):
         # Pad characters
@@ -474,7 +478,8 @@ class BiLSTM:
 
         return labels
 
-    def getSentenceLengths(self, sentences):
+    @staticmethod
+    def getSentenceLengths(sentences):
         sentenceLengths = {}
         for idx in range(len(sentences)):
             sentence = sentences[idx]['tokens']
@@ -495,9 +500,8 @@ class BiLSTM:
                 nnInput.append(inputData)
             
             predictions = model.predict(nnInput, verbose=False)
-            predictions = predictions.argmax(axis=-1) #Predict classes            
-           
-            
+            predictions = predictions.argmax(axis=-1)   # Predict classes
+
             predIdx = 0
             for idx in indices:
                 predLabels[idx] = predictions[predIdx]    
@@ -506,14 +510,15 @@ class BiLSTM:
         return predLabels
 
     def computeScore(self, modelName, devMatrix, testMatrix):
-        if self.labelKeys[modelName].endswith('_BIO') or self.labelKeys[modelName].endswith('_IOBES') or self.labelKeys[modelName].endswith('_IOB'):
+        if self.labelKeys[modelName].endswith('_BIO') or self.labelKeys[modelName].endswith('_IOBES') or \
+                self.labelKeys[modelName].endswith('_IOB'):
             return self.computeF1Scores(modelName, devMatrix, testMatrix)
         else:
             return self.computeAccScores(modelName, devMatrix, testMatrix)   
 
     def computeF1Scores(self, modelName, devMatrix, testMatrix):
-        #train_pre, train_rec, train_f1 = self.computeF1(modelName, self.datasets[modelName]['trainMatrix'])
-        #print "Train-Data: Prec: %.3f, Rec: %.3f, F1: %.4f" % (train_pre, train_rec, train_f1)
+        # train_pre, train_rec, train_f1 = self.computeF1(modelName, self.datasets[modelName]['trainMatrix'])
+        # print "Train-Data: Prec: %.3f, Rec: %.3f, F1: %.4f" % (train_pre, train_rec, train_f1)
         
         dev_pre, dev_rec, dev_f1 = self.computeF1(modelName, devMatrix)
         logging.info("Dev-Data: Prec: %.3f, Rec: %.3f, F1: %.4f" % (dev_pre, dev_rec, dev_f1))
@@ -527,8 +532,8 @@ class BiLSTM:
         dev_acc = self.computeAcc(modelName, devMatrix)
         test_acc = self.computeAcc(modelName, testMatrix)
         
-        logging.info("Dev-Data: Accuracy: %.4f" % (dev_acc))
-        logging.info("Test-Data: Accuracy: %.4f" % (test_acc))
+        logging.info("Dev-Data: Accuracy: %.4f" % dev_acc)
+        logging.info("Test-Data: Accuracy: %.4f" % test_acc)
         
         return dev_acc, test_acc   
 
@@ -564,28 +569,27 @@ class BiLSTM:
                 if correctLabels[sentenceId][tokenId] == predLabels[sentenceId][tokenId]:
                     numCorrLabels += 1
 
-  
         return numCorrLabels/float(numLabels)
     
     def padCharacters(self, sentences):
         """ Pads the character representations of the words to the longest word in the dataset """
-        #Find the longest word in the dataset
+        # Find the longest word in the dataset
         maxCharLen = self.params['maxCharLength']
         if maxCharLen <= 0:
             for sentence in sentences:
                 for token in sentence['characters']:
                     maxCharLen = max(maxCharLen, len(token))
-          
 
         for sentenceIdx in range(len(sentences)):
             for tokenIdx in range(len(sentences[sentenceIdx]['characters'])):
                 token = sentences[sentenceIdx]['characters'][tokenIdx]
 
-                if len(token) < maxCharLen: #Token shorter than maxCharLen -> pad token
-                    sentences[sentenceIdx]['characters'][tokenIdx] = np.pad(token, (0,maxCharLen-len(token)), 'constant')
-                else: #Token longer than maxCharLen -> truncate token
+                if len(token) < maxCharLen:     # Token shorter than maxCharLen -> pad token
+                    sentences[sentenceIdx]['characters'][tokenIdx] = np.pad(token,
+                                                                            (0, maxCharLen-len(token)), 'constant')
+                else:   # Token longer than maxCharLen -> truncate token
                     sentences[sentenceIdx]['characters'][tokenIdx] = token[0:maxCharLen]
-    
+
         self.maxCharLen = maxCharLen
         
     def addTaskIdentifier(self):
@@ -603,10 +607,12 @@ class BiLSTM:
         import json
         import h5py
 
-        if self.modelSavePath == None:
+        if self.modelSavePath is None:
             raise ValueError('modelSavePath not specified.')
 
-        savePath = self.modelSavePath.replace("[DevScore]", "%.4f" % dev_score).replace("[TestScore]", "%.4f" % test_score).replace("[Epoch]", str(epoch+1)).replace("[ModelName]", modelName)
+        savePath = self.modelSavePath.replace("[DevScore]", "%.4f" % dev_score).\
+            replace("[TestScore]", "%.4f" % test_score).replace("[Epoch]", str(epoch+1)).\
+            replace("[ModelName]", modelName)
 
         directory = os.path.dirname(savePath)
         if not os.path.exists(directory):
@@ -627,7 +633,7 @@ class BiLSTM:
     def loadModel(modelPath):
         import h5py
         import json
-        from .keraslayers.ChainCRF import create_custom_objects
+        from .ChainCRF import create_custom_objects
 
         model = keras.models.load_model(modelPath, custom_objects=create_custom_objects())
 
@@ -639,8 +645,8 @@ class BiLSTM:
 
         bilstm = BiLSTM(params)
         bilstm.setMappings(mappings, None)
+        bilstm.idx2Labels = {}
         bilstm.models = {modelName: model}
         bilstm.labelKeys = {modelName: labelKey}
-        bilstm.idx2Labels = {}
         bilstm.idx2Labels[modelName] = {v: k for k, v in bilstm.mappings[labelKey].items()}
         return bilstm

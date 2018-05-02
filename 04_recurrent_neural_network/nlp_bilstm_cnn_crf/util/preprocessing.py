@@ -313,8 +313,7 @@ def createMatrices(sentences, mappings, padOneTokenSentence):
         
     return data
     
-  
-  
+
 def createPklFiles(datasetFiles, mappings, cols, commentSymbol, valTransformation, padOneTokenSentence):
     trainSentences = readCoNLL(datasetFiles[0], cols, commentSymbol, valTransformation)
     devSentences = readCoNLL(datasetFiles[1], cols, commentSymbol, valTransformation)
@@ -357,6 +356,7 @@ def createPklFiles(datasetFiles, mappings, cols, commentSymbol, valTransformatio
     
     return data
 
+
 def extendMappings(mappings, sentences):
     sentenceKeys = list(sentences[0].keys())
     sentenceKeys.remove('tokens') #No need to map tokens
@@ -371,13 +371,9 @@ def extendMappings(mappings, sentences):
                     mappings[name][item] = len(mappings[name])
 
 
-
-    
-
 def getEmbeddings(name):
     if not os.path.isfile(name):
         download("https://public.ukp.informatik.tu-darmstadt.de/reimers/embeddings/"+name)
-
 
 
 def getLevyDependencyEmbeddings():
@@ -392,6 +388,7 @@ def getLevyDependencyEmbeddings():
     print("Start unzip word embeddings ...")
     os.system("bzip2 -d levy_deps.words.bz2")
 
+
 def getReimersEmbeddings():
     """
     Downloads from https://www.ukp.tu-darmstadt.de/research/ukp-in-challenges/germeval-2014/
@@ -401,7 +398,6 @@ def getReimersEmbeddings():
         print("Start downloading word embeddings from Reimers et al. ...")
         os.system("wget https://public.ukp.informatik.tu-darmstadt.de/reimers/2014_german_embeddings/2014_tudarmstadt_german_50mincount.vocab.gz")
     
-   
 
 if sys.version_info >= (3,):
     import urllib.request as urllib2

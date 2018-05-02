@@ -66,4 +66,4 @@ model.setMappings(mappings, embeddings)
 model.setDataset(datasets, data)
 model.storeResults('results/unidep_pos_results.csv')    # Path to store performance scores for dev/test
 model.modelSavePath = "models/[ModelName]_[DevScore]_[TestScore]_[Epoch].h5"    # Path to store models
-model.fit(epochs=20)
+model.fit(epochs=5)
