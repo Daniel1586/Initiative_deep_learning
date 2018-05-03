@@ -6,22 +6,19 @@ Author: Nils Reimers
 License: Apache-2.0
 """
 
-from __future__ import print_function
-from util import BIOF1Validation
-
-import keras
-from keras.optimizers import *
-from keras.models import Model
-from keras.layers import *
-import math
-import numpy as np
-import sys
-import time
 import os
+import sys
+import math
+import time
+import keras
 import random
 import logging
-
+import numpy as np
+from keras.layers import *
+from keras.models import Model
+from keras.optimizers import *
 from .ChainCRF import ChainCRF
+from util import BIOF1Validation
 
 
 class BiLSTM:
@@ -102,10 +99,10 @@ class BiLSTM:
             if self.datasets[modelName]['evaluate']:
                 self.evaluateModelNames.append(modelName)
             
-            logging.info("----- %s -----" % modelName)
-            logging.info("%d train sentences" % len(self.data[modelName]['trainMatrix']))
-            logging.info("%d dev sentences" % len(self.data[modelName]['devMatrix']))
-            logging.info("%d test sentences" % len(self.data[modelName]['testMatrix']))
+            logging.info("===== :: %s :: =====" % modelName)
+            logging.info("----- :: %d train sentences" % len(self.data[modelName]['trainMatrix']))
+            logging.info("----- :: %d dev sentences" % len(self.data[modelName]['devMatrix']))
+            logging.info("----- :: %d test sentences" % len(self.data[modelName]['testMatrix']))
 
         if len(self.evaluateModelNames) == 1:
             self.mainModelName = self.evaluateModelNames[0]
@@ -296,7 +293,7 @@ class BiLSTM:
             model.compile(loss=lossFct, optimizer=opt)
             model.summary(line_length=200)
             logging.info(model.get_config())
-            logging.info("Optimizer: %s - %s" % (str(type(model.optimizer)), str(model.optimizer.get_config())))
+            logging.info("===== :: Optimizer: %s - %s" % (str(type(model.optimizer)), str(model.optimizer.get_config())))
             self.models[modelName] = model
 
     # 训练模型
@@ -415,17 +412,17 @@ class BiLSTM:
         
         for epoch in range(epochs):      
             sys.stdout.flush()           
-            logging.info("\n--------- Epoch %d -----------" % (epoch+1))
+            logging.info("\n==================== Epoch %d ====================" % (epoch+1))
             
             start_time = time.time() 
             self.trainModel()
             time_diff = time.time() - start_time
             total_train_time += time_diff
-            logging.info("%.2f sec for training (%.2f total)" % (time_diff, total_train_time))
+            logging.info("===== :: %.2f sec for training (%.2f total)" % (time_diff, total_train_time))
 
             start_time = time.time() 
             for modelName in self.evaluateModelNames:
-                logging.info("-- %s --" % modelName)
+                logging.info("---------- %s ----------" % modelName)
                 dev_score, test_score =\
                     self.computeScore(modelName, self.data[modelName]['devMatrix'], self.data[modelName]['testMatrix'])
 
@@ -446,10 +443,10 @@ class BiLSTM:
                     self.resultsSavePath.write("\n")
                     self.resultsSavePath.flush()
                 
-                logging.info("Max: %.4f dev; %.4f test" % (max_dev_score[modelName], max_test_score[modelName]))
+                logging.info("----- :: Max: %.4f dev; %.4f test" % (max_dev_score[modelName], max_test_score[modelName]))
                 logging.info("")
                 
-            logging.info("%.2f sec for evaluation" % (time.time() - start_time))
+            logging.info("===== :: %.2f sec for evaluation" % (time.time() - start_time))
             
             if self.params['earlyStopping'] > 0:
                 if no_improvement_since >= self.params['earlyStopping']:
@@ -532,8 +529,8 @@ class BiLSTM:
         dev_acc = self.computeAcc(modelName, devMatrix)
         test_acc = self.computeAcc(modelName, testMatrix)
         
-        logging.info("Dev-Data: Accuracy: %.4f" % dev_acc)
-        logging.info("Test-Data: Accuracy: %.4f" % test_acc)
+        logging.info("----- :: Dev-Data: Accuracy: %.4f" % dev_acc)
+        logging.info("----- :: Test-Data: Accuracy: %.4f" % test_acc)
         
         return dev_acc, test_acc   
 
