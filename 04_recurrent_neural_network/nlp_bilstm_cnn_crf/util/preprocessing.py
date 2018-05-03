@@ -324,7 +324,7 @@ def createMatrices(sentences, mappings, padOneTokenSentence):
         data.append(row)
     
     if numTokens > 0:           
-        logging.info("===== :: Unknown-Tokens: %.2f%%" % (numUnknownTokens/float(numTokens)*100))
+        logging.info("----- :: Unknown-Tokens: %.2f%%" % (numUnknownTokens/float(numTokens)*100))
         
     return data
     
@@ -353,13 +353,13 @@ def createPklFiles(datasetFiles, mappings, cols, commentSymbol, valTransformatio
     addCasingInformation(testSentences)
 
     # :: train/dev/test sentences 生成索引表 ::
-    logging.info("===== :: Create Train Matrix ::")
+    logging.info("----- :: Create Train Matrix ::")
     trainMatrix = createMatrices(trainSentences, mappings, padOneTokenSentence)
 
-    logging.info("===== :: Create Dev Matrix ::")
+    logging.info("----- :: Create Dev Matrix ::")
     devMatrix = createMatrices(devSentences, mappings, padOneTokenSentence)
 
-    logging.info("===== :: Create Test Matrix ::")
+    logging.info("----- :: Create Test Matrix ::")
     testMatrix = createMatrices(testSentences, mappings, padOneTokenSentence)
 
     data = {
