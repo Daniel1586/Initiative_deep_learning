@@ -6,7 +6,6 @@
 # Usage: python RunModel.py modelPath inputPath
 # For pretrained models see docs/Pretrained_Models.md
 
-# from __future__ import print_function
 import sys
 import nltk
 from neuralnets.BiLSTM import BiLSTM
@@ -16,9 +15,11 @@ from util.preprocessing import addCharInformation, createMatrices, addCasingInfo
 if len(sys.argv) < 3:
     print("Usage: python RunModel.py modelPath inputPath")
     exit()
-
 modelPath = sys.argv[1]
 inputPath = sys.argv[2]
+
+# modelPath = "unidep_pos.h5"
+# inputPath = "test.txt"
 
 # :: Read input ::
 with open(inputPath, 'r') as f:
@@ -40,11 +41,9 @@ tags = lstmModel.tagSentences(dataMatrix)
 # :: Output to stdout ::
 for sentenceIdx in range(len(sentences)):
     tokens = sentences[sentenceIdx]['tokens']
-
     for tokenIdx in range(len(tokens)):
         tokenTags = []
         for modelName in sorted(tags.keys()):
             tokenTags.append(tags[modelName][sentenceIdx][tokenIdx])
-
         print("%s\t%s" % (tokens[tokenIdx], "\t".join(tokenTags)))
     print("")

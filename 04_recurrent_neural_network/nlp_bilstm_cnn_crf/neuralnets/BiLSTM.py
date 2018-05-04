@@ -518,10 +518,10 @@ class BiLSTM:
         # print "Train-Data: Prec: %.3f, Rec: %.3f, F1: %.4f" % (train_pre, train_rec, train_f1)
         
         dev_pre, dev_rec, dev_f1 = self.computeF1(modelName, devMatrix)
-        logging.info("Dev-Data: Prec: %.3f, Rec: %.3f, F1: %.4f" % (dev_pre, dev_rec, dev_f1))
+        logging.info("----- :: Dev-Data: Prec: %.3f, Rec: %.3f, F1: %.4f" % (dev_pre, dev_rec, dev_f1))
         
         test_pre, test_rec, test_f1 = self.computeF1(modelName, testMatrix)
-        logging.info("Test-Data: Prec: %.3f, Rec: %.3f, F1: %.4f" % (test_pre, test_rec, test_f1))
+        logging.info("----- :: Test-Data: Prec: %.3f, Rec: %.3f, F1: %.4f" % (test_pre, test_rec, test_f1))
         
         return dev_f1, test_f1
     
